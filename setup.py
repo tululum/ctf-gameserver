@@ -27,7 +27,7 @@ setup(
         'dev': [
             'bandit',
             'mkdocs',
-            'psycopg2-binary',
+            'psycopg2-binary>=2.8,<2.9',
             'pycodestyle',
             'pylint',
             'pytest',
@@ -35,8 +35,10 @@ setup(
             'tox'
         ],
         'prod': [
-            'psycopg2',
-            'systemd'
+            'psycopg2-binary>=2.8,<2.9',
+            'pylibmc',
+            'python-logging-loki',
+            #'systemd' # TODO: not working
         ]
     },
 
@@ -59,6 +61,7 @@ setup(
             'static/*.gif',
             'static/*.js',
             'static/faustctf.svg',
+            'static/ecsc-badge.png',
             'static/ext/jquery.min.js',
             'static/ext/bootstrap/css/*',
             'static/ext/bootstrap/fonts/*',

@@ -6,6 +6,7 @@ from django.db.models import F, Max
 
 from . import models
 
+from ctf_gameserver.web.scoring import models as scoring_models
 
 def scores(tick):
     """
@@ -36,6 +37,10 @@ def scores(tick):
     The scores are sorted by the total_score.
     """
 
+    points_tick = get_points_tick()
+    after_freeze = tick > points_tick
+    tick = min(points_tick, tick)
+
     team_scores = defaultdict(lambda: {
         'services': defaultdict(lambda: {
             'offense_score': 0, 'offense_delta': 0,
@@ -53,7 +58,7 @@ def scores(tick):
     })
 
     for score in models.Board.objects.filter(tick=tick).all():
-        srv = team_scores[score.team_id]['services'][score.service_id]
+        srv = team_scores[score.team_id]['services'][score.service_group_id]
         srv['offense_score']  = srv['offense_delta']        = score.attack
         srv['defense_score']  = srv['defense_delta']        =  score.defense
         srv['sla_score']      = srv['sla_delta']            = score.sla
@@ -67,7 +72,18 @@ def scores(tick):
 
     # calculate the difference to the previous tick (if any)
     for score in models.Board.objects.filter(tick=tick - 1).all():
-        srv = team_scores[score.team_id]['services'][score.service_id]
+        srv = team_scores[score.team_id]['services'][score.service_group_id]
+        if after_freeze:
+            srv['offense_delta']        = 0
+            srv['defense_delta']        = 0
+            srv['sla_delta']            = 0
+            srv['flags_captured_delta'] = 0
+            srv['flags_lost_delta']     = 0
+            total = team_scores[score.team_id]['total']
+            total['offense_delta'] = 0
+            total['defense_delta'] = 0
+            total['sla_delta']     = 0
+            continue
         srv['offense_delta']        -= score.attack
         srv['defense_delta']        -= score.defense
         srv['sla_delta']            -= score.sla
@@ -81,6 +97,10 @@ def scores(tick):
     attackers_victims = defaultdict(lambda: {'attackers': 0, 'victims': 0})
     for team in team_scores.values():
         for service_id, service in team['services'].items():
+            if after_freeze:
+                attackers_victims[service_id]['attackers'] = 0
+                attackers_victims[service_id]['victims']   = 0
+                continue
             attackers_victims[service_id]['attackers'] += int(service['flags_captured_delta'] > 0)
             attackers_victims[service_id]['victims']   += int(service['flags_lost_delta'] > 0)
 
@@ -99,6 +119,26 @@ def get_scoreboard_tick():
         # game has not started: current_tick < 0
         # return -1 so scoreboard already shows services when they are public
         return -1
+
+    return scoreboard_tick
+
+def get_points_tick():
+    """
+    Get the maximum tick to display point increases for. Usually equal current_tick - 1
+    This is different than the scoreboard tick after the scoreboard is frozen.
+    """
+    # max tick of scoreboard
+    scoreboard_tick = models.Board.objects.aggregate(max_tick=Max('tick'))['max_tick']
+    if scoreboard_tick is None:
+        # game has not started: current_tick < 0
+        # return -1 so scoreboard already shows services when they are public
+        return -1
+
+    game_control = scoring_models.GameControl.get_instance()
+    if game_control.competition_frozen():
+        freeze_tick = int((game_control.freeze - game_control.start).total_seconds() // game_control.tick_duration - 1)
+        return min(scoreboard_tick, freeze_tick)
+
     return scoreboard_tick
 
 def get_firstbloods(scoreboard_tick):
@@ -128,11 +168,11 @@ def per_team_scores(team_id, service_ids_order):
     The second index is the tick.
     So result[0][0] is the score from service with id service_ids_order[0] and tick 0.
     """
-    scoreboard_tick = get_scoreboard_tick()
+    points_tick = get_points_tick()
 
-    # cache based on team_id and scoreboard_tick which invalidates the cache
+    # cache based on team_id and points_tick which invalidates the cache
     # when update_scoring() ran in the controller
-    cache_key = 'scoreboard_v2_team_scores_{:d}_{:d}'.format(team_id, scoreboard_tick)
+    cache_key = 'scoreboard_v2_team_scores_{:d}_{:d}'.format(team_id, points_tick)
     cached_team_scores = cache.get(cache_key)
 
     if cached_team_scores is not None:
@@ -140,14 +180,14 @@ def per_team_scores(team_id, service_ids_order):
 
     team_total_scores = models.Board.objects \
         .annotate(points=F('attack')+F('defense')+F('sla')) \
-        .filter(team_id = team_id, tick__lte = scoreboard_tick) \
+        .filter(team_id = team_id, tick__lte = points_tick) \
         .order_by('tick') \
-        .values('service_id', 'points')
+        .values('service_group_id', 'points')
 
     result =  list([] for _ in service_ids_order)
 
     for total_score in team_total_scores:
-        result[service_ids_order.index(total_score['service_id'])].append(total_score['points'])
+        result[service_ids_order.index(total_score['service_group_id'])].append(total_score['points'])
     
     cache.set(cache_key, result, 90)
 

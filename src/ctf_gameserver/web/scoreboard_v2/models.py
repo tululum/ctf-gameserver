@@ -1,7 +1,7 @@
 from django.db import models
 
 from ctf_gameserver.web.registration.models import Team
-from ctf_gameserver.web.scoring.models import Service
+from ctf_gameserver.web.scoring.models import Service, ServiceGroup
 
 
 class Board(models.Model):
@@ -12,7 +12,7 @@ class Board(models.Model):
     """
     tick = models.IntegerField(editable=False, primary_key=True)
     team = models.OneToOneField(Team, editable=False, on_delete=models.PROTECT)
-    service = models.OneToOneField(Service, editable=False, on_delete=models.PROTECT)
+    service_group = models.OneToOneField(ServiceGroup, editable=False, on_delete=models.PROTECT)
     attack = models.FloatField(editable=False)
     defense = models.FloatField(editable=False)
     sla = models.FloatField(editable=False)
@@ -22,7 +22,7 @@ class Board(models.Model):
     class Meta:
         managed = False # django should not create a table for this
         constraints = [
-            models.UniqueConstraint(fields=['tick', 'team', 'service'], name='unique_per_tick')
+            models.UniqueConstraint(fields=['tick', 'team', 'service_group'], name='unique_per_tick')
         ]
 
     def __str__(self):

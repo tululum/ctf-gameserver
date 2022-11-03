@@ -30,11 +30,11 @@ HTTPS = False
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'HOST': '',
-        'PORT': '',
-        'NAME': '',
-        'USER': '',
-        'PASSWORD': '',
+        'HOST': 'gameserver-postgres',
+        'PORT': 5432,
+        'NAME': 'ctf-gameserver',
+        'USER': 'ctf-gameserver',
+        'PASSWORD': '9iyzXY6pMYzRvXZi',
         'CONN_MAX_AGE': 60
     }
 }
@@ -44,42 +44,44 @@ DATABASES = {
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.memcached.PyLibMCCache',
-        'LOCATION': '',
+        'LOCATION': 'gameserver-memcached:11211',
         'TIMEOUT': 60
     }
 }
 
 # Settings for the SMTP server that will be used to send email messages
 # See https://docs.djangoproject.com/en/1.8/ref/settings/#email-host and other options
-EMAIL_HOST = ''
-EMAIL_PORT = 25
-EMAIL_HOST_USER = ''
-EMAIL_HOST_PASSWORD = ''
-# See https://docs.djangoproject.com/en/1.8/ref/settings/#email-use-tls
-EMAIL_USE_TLS = False
-EMAIL_USE_SSL = False
+# EMAIL_HOST = ''
+# EMAIL_PORT = 25
+# EMAIL_HOST_USER = ''
+# EMAIL_HOST_PASSWORD = ''
+# # See https://docs.djangoproject.com/en/1.8/ref/settings/#email-use-tls
+# EMAIL_USE_TLS = False
+# EMAIL_USE_SSL = False
 
-# Sender address for messages sent by the gameserver
-DEFAULT_FROM_EMAIL = ''
+# # Sender address for messages sent by the gameserver
+# DEFAULT_FROM_EMAIL = ''
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'ctf-gameserver.web@localhost'
 
 # Filesystem path where user-uploaded files are stored
 # This directory must be served by the web server under the path defined by MEDIA_URL in 'base_settings.py'
 # ("/uploads" by default)
-MEDIA_ROOT = ''
+MEDIA_ROOT = '/uploads'
 
 # The backend used to store user sessions
 SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
 # A long, random string, which you are supposed to keep secret
-SECRET_KEY = ''
+SECRET_KEY = '4HqT2rlhn4efX7jZ2d8MkCBzgRLO0t33udFoqi5YEt72VeHhBv3pTI6pUIGsCPZP'
 
 # Insert all hostnames your site is available under
 # See https://docs.djangoproject.com/en/1.8/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # The name of the time zone (i.e. something like "Europe/Berlin") in which dates should be displayed
 # See https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for a list of valid options
-TIME_ZONE = ''
+TIME_ZONE = 'Europe/Vienna'
 
 # First day of the week: 0 means Sunday, 1 means Monday and so on
 FIRST_DAY_OF_WEEK = 1
@@ -91,23 +93,23 @@ FIRST_DAY_OF_WEEK = 1
 
 # You should not have to edit anything below this line
 
-# Set up logging to syslog
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'syslog': {
-            'class': 'logging.handlers.SysLogHandler',
-            'address': '/dev/log'
-        }
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['syslog'],
-            'level': 'WARNING'
-        }
-    }
-}
+# # Set up logging to syslog
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'handlers': {
+#         'syslog': {
+#             'class': 'logging.handlers.SysLogHandler',
+#             'address': '/dev/log'
+#         }
+#     },
+#     'loggers': {
+#         'django': {
+#             'handlers': ['syslog'],
+#             'level': 'WARNING'
+#         }
+#     }
+# }
 
 DEBUG = False
 

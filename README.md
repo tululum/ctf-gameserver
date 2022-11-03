@@ -1,4 +1,26 @@
-CTF Gameserver
+CTF Gameserver (ECSC 2022 Version)
+==============
+
+This repo contains the FAUST framework with adaptations for the European Cyber Security Challenge 2022. The main changes are:
+
+- Added support for multiple flagstores per challenge via ServiceGroups
+    - Separate checker for each flagstore, Flags and SLA status is evaluated for each flagstore
+    - Points are aggregated by ServiceGroup
+    - Attack and Defense Points are calculated according to the original FaustCTF formula
+    - SLA points depend on other services of the same ServiceGroup:
+        - ServiceGroups with all services up give SLA points according to the original FaustCTF formula
+        - ServiceGroups with at least one service recovering give 50% of regular SLA points
+        - ServiceGroups with at least one service down/faulty/not checked give SLA 0 points
+- Added checker status messages, telling participants what went wrong
+- Improved integration with the Saarctf scoreboard:
+    - Added ability to freeze the scoreboard
+    - Displaying of team IP addresses
+    - Displaying of service status messages
+    - First blood is displayed per flagstore
+- Added checker logging via Loki
+- ECSC-specific theme changes
+
+Original README
 ==============
 
 This is a gameserver for [attack-defense (IT security) CTFs](https://ctftime.org/ctf-wtf/). It was originally

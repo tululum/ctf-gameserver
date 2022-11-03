@@ -51,6 +51,7 @@ def main():
     group.add_argument('--journald', action='store_true', help='Log Checker Script messages to journald')
     group.add_argument('--gelf-server', help='Log Checker Script messages to the specified GELF (Graylog) '
                        'server ("<host>:<port>")')
+    group.add_argument('--loki-url', help='Log Checker Script message to the specified Loki URL')
 
     args = arg_parser.parse_args()
 
@@ -87,6 +88,15 @@ def main():
             logging.error('GELF server needs to be specified as "<host>:<port>"')
             return os.EX_USAGE
         logging_params['gelf'] = {'host': gelf_host, 'port': gelf_port, 'family': gelf_family}
+
+    if args.loki_url is not None:
+        try:
+            # pylint: disable=import-outside-toplevel,unused-import,import-error
+            import logging_loki
+        except ImportError:
+            logging.error('graypy module is required for GELF logging')
+            return os.EX_USAGE
+        logging_params['loki'] = { 'url': args.loki_url }
 
     # Configure metrics
     if args.metrics_listen is not None:
@@ -311,24 +321,32 @@ class MasterLoop:
 
     def handle_result_request(self, task_info, param):
         try:
-            result = int(param)
-        except ValueError:
+            result = int(param['value'])
+        except ValueError | KeyError:
             logging.error('Invalid result from Checker Script for team %d (net number %d) in tick %d: %s',
                           task_info['_team_id'], task_info['team'], task_info['tick'], param)
             return
 
         try:
-            check_result = CheckResult(result)
+            check_result = CheckResult(param['value'])
         except ValueError:
             logging.error('Invalid result from Checker Script for team %d (net number %d) in tick %d: %d',
                           task_info['_team_id'], task_info['team'], task_info['tick'], result)
             return
 
-        logging.info('Result from Checker Script for team %d (net number %d) in tick %d: %s',
-                     task_info['_team_id'], task_info['team'], task_info['tick'], check_result)
+        try:
+            message = str(param['message'])
+        except ValueError | KeyError:
+            logging.error('Invalid result from Checker Script for team %d (net number %d) in tick %d: %s',
+                          task_info['_team_id'], task_info['team'], task_info['tick'], param)
+            return
+
+
+        logging.info('Result from Checker Script for team %d (net number %d) in tick %d: %s, msg: %s',
+                     task_info['_team_id'], task_info['team'], task_info['tick'], check_result, message)
         metrics.inc(self.metrics_queue, 'completed_tasks', labels={'result': check_result.name})
         database.commit_result(self.db_conn, self.service['id'], task_info['team'], task_info['tick'],
-                               result)
+                               result, message)
 
     def launch_tasks(self):
         def change_tick(new_tick):

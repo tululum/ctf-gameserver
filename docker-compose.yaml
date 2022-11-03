@@ -1,0 +1,152 @@
+version: '3'
+
+volumes:
+  pgdata:
+
+networks:
+  gameserver:
+          
+services:
+  gameserver-postgres:
+    image: postgres:14-alpine
+    restart: on-failure
+    environment:
+      - POSTGRES_USER=ctf-gameserver
+      - POSTGRES_DB=ctf-gameserver
+      - POSTGRES_PASSWORD=9iyzXY6pMYzRvXZi
+      - TZ=UTC
+      - PGTZ=UTC
+    volumes:
+      - pgdata:/var/lib/postgresql/data 
+    networks:
+      - gameserver
+    ports:
+      - 5432:5432
+
+  gameserver-memcached:
+    image: memcached:1.6-alpine
+    networks:
+      - gameserver
+
+  gameserver-web-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web-init
+    depends_on:
+      - gameserver-web
+    restart: "no"
+    networks:
+      - gameserver
+    #volumes:
+    #  # Change CTF config
+    #  - config.yaml:/ansible/group_vars/all.yaml
+    environment:
+      - PGHOST=gameserver-postgres
+      - PGPASSWORD=9iyzXY6pMYzRvXZi
+      
+  gameserver-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    restart: on-failure
+    depends_on:
+      - gameserver-postgres
+    networks:
+      - gameserver
+    ports:
+      - 5000:5000
+    environment:
+      - CTF_IPPATTERN=10.10.%s.1
+
+  gameserver-scoreboard:
+    build:
+      context: saarctf-gameserver/scoreboard
+      dockerfile: Dockerfile
+    restart: on-failure
+    depends_on:
+      - gameserver-web
+    networks:
+      - gameserver
+    ports:
+      - 8000:80
+    environment:
+      - BACKEND_URL=http://gameserver-web:5000
+
+  gameserver-submission:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: submission
+    depends_on:
+      - gameserver-postgres
+    restart: on-failure
+    networks:
+      - gameserver
+    ports:
+      - 31337:31337
+    environment:
+      - CTF_LOGLEVEL=DEBUG
+      - CTF_DBHOST=gameserver-postgres
+      - CTF_DBNAME=ctf-gameserver
+      - CTF_DBUSER=ctf-gameserver
+      - CTF_DBPASSWORD=9iyzXY6pMYzRvXZi
+      - CTF_FLAGSECRET=KWmRQ5HxPzPeFPHu
+      - "CTF_TEAMREGEX=^\\d+\\.\\d+\\.(\\d+)\\.\\d+$$"
+    command:
+      --listen 0.0.0.0:31337
+
+  gameserver-controller:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: controller
+    depends_on:
+      - gameserver-postgres
+    restart: on-failure
+    networks:
+      - gameserver
+    ports:
+      - 9100:9100
+    environment:
+      - CTF_LOGLEVEL=DEBUG
+      - CTF_DBHOST=gameserver-postgres
+      - CTF_DBNAME=ctf-gameserver
+      - CTF_DBUSER=ctf-gameserver
+      - CTF_DBPASSWORD=9iyzXY6pMYzRvXZi
+      - CTF_METRICS_LISTEN=0.0.0.0:9100
+
+  gameserver-checker-example:
+    image: wert310/gameserver-basechecker:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: checkerbase
+    depends_on:
+      - gameserver-postgres
+    restart: on-failure
+    ports:
+      - 9101:9101
+    networks:
+      - gameserver
+    volumes:
+      - ./examples/checker/true.py:/etc/ctf-gameserver/example_checker.py
+    user: ctf-checkermaster
+    environment:
+      - CTF_LOGLEVEL=INFO
+      - CTF_DBHOST=gameserver-postgres
+      - CTF_DBNAME=ctf-gameserver
+      - CTF_DBUSER=ctf-gameserver
+      - CTF_DBPASSWORD=9iyzXY6pMYzRvXZi
+      - CTF_METRICS_LISTEN=0.0.0.0:9101
+      - CTF_SUDOUSER=ctf-checkerrunner
+      - CTF_IPPATTERN=10.10.%s.1
+      - CTF_FLAGSECRET=KWmRQ5HxPzPeFPHu
+      # - "CTF_LOKI_URL=https://...@logs-prod-eu-west-0.grafana.net/loki/api/v1/push"
+      # Service specific
+      - CTF_SERVICE=service1_checker1
+      - CTF_CHECKERSCRIPT=/etc/ctf-gameserver/example_checker.py
+      - CTF_CHECKERCOUNT=1
+      - CTF_INTERVAL=10
+

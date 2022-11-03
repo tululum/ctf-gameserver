@@ -202,6 +202,17 @@ def _run_checker_script(args, sudo_user, info, logging_params, runner_id, queue_
         gelf_handler = GELFHandler(logging_params['gelf']['host'], logging_params['gelf']['port'])
         script_logger.addHandler(gelf_handler)
 
+    if 'loki' in logging_params:
+        # pylint: disable=import-outside-toplevel,import-error
+        import logging_loki
+
+        loki_handler = logging_loki.LokiHandler(
+            url=logging_params['loki']['url'],
+            tags={'service': info['service'], 'team': info['team'], 'tick': info['tick']},
+            version="1",
+        )
+        script_logger.addHandler(loki_handler)
+
     stdout_read, stdout_write = os.pipe()
     stderr_read, stderr_write = os.pipe()
     ctrlin_read, ctrlin_write = os.pipe()
@@ -361,13 +372,12 @@ def handle_script_message(message, ctrlin_fd, runner_id, queue_to_master, pipe_f
 
     if action == ACTION_RESULT:
         try:
-            result = CheckResult(int(param))
-        except ValueError:
+            result = CheckResult(int(param['value']))
+            script_logger.info('[RUNNER] Checker Script result: %s, msg: %s', result.name, param['message'],
+                               extra={'result': result.value})
+        except ValueError | KeyError:
             # Ignore malformed message from the Checker Script, will be logged by the Master
             pass
-        else:
-            script_logger.info('[RUNNER] Checker Script result: %s', result.name,
-                               extra={'result': result.value})
 
     queue_to_master.put((runner_id, action, param))
     response = pipe_from_master.recv()

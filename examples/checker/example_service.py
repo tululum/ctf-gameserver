@@ -51,5 +51,5 @@ class RequestHandler(socketserver.BaseRequestHandler):
 
 if __name__ == "__main__":
 
-    with socketserver.TCPServer(('localhost', 9999), RequestHandler) as server:
+    with socketserver.TCPServer(('0.0.0.0', 9999), RequestHandler) as server:
         server.serve_forever()

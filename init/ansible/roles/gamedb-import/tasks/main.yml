@@ -1,0 +1,9 @@
+---
+- name: copy game data
+  template:
+    src: game_data.sql
+    dest: game_data.sql
+    mode: '0644'
+
+- name: import game data
+  shell: "PGPASSWORD={{ pgpassword }} psql -h {{ gamedb_host }} -U ctf-gameserver -d ctf-gameserver < game_data.sql"

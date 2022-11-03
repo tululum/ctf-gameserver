@@ -6,6 +6,17 @@ from django.utils.translation import gettext_lazy as _
 from ctf_gameserver.web.registration.models import Team
 
 
+class ServiceGroup(models.Model):
+    """
+    Database representation of a service from the competition.
+    """
+
+    name = models.CharField(max_length=30, unique=True)
+    slug = models.SlugField(max_length=30, unique=True)
+
+    def __str__(self):
+        return self.name
+
 class Service(models.Model):
     """
     Database representation of a service from the competition.
@@ -13,6 +24,7 @@ class Service(models.Model):
 
     name = models.CharField(max_length=30, unique=True)
     slug = models.SlugField(max_length=30, unique=True)
+    service_group = models.ForeignKey(ServiceGroup, on_delete=models.CASCADE)
 
     def __str__(self):    # pylint: disable=invalid-str-returned
         return self.name
@@ -92,6 +104,7 @@ class StatusCheck(models.Model):
     # REVISIT: Add check constraint for the values as soon as we have Django >= 2.2
     status = models.PositiveSmallIntegerField(choices=[(i, t) for t, i in STATUSES.items()])
     timestamp = models.DateTimeField(auto_now_add=True)
+    message = models.CharField(max_length=100)
 
     class Meta:
         unique_together = ('service', 'team', 'tick')
@@ -111,7 +124,7 @@ class ScoreBoard(models.Model):
     read-only from within the website.
     """
     team = models.OneToOneField(Team, editable=False, primary_key=True, on_delete=models.PROTECT)
-    service = models.OneToOneField(Service, editable=False, on_delete=models.PROTECT)
+    service_group = models.OneToOneField(ServiceGroup, editable=False, on_delete=models.PROTECT)
     attack = models.FloatField(editable=False)
     bonus = models.FloatField(editable=False)
     defense = models.FloatField(editable=False)
@@ -155,6 +168,7 @@ class GameControl(models.Model):
     services_public = models.DateTimeField(null=True)
     start = models.DateTimeField(null=True)
     end = models.DateTimeField(null=True)
+    freeze = models.DateTimeField(null=True)
     # Tick duration in seconds
     tick_duration = models.PositiveSmallIntegerField(default=180)
     # Number of ticks a flag is valid for including the one it was generated in
@@ -207,6 +221,15 @@ class GameControl(models.Model):
             return False
 
         return self.start <= timezone.now()
+
+    def competition_frozen(self):
+        """
+        Indicates whether the competition scoreboard is frozen.
+        """
+        if self.start is None or self.end is None or self.freeze is None:
+            return False
+
+        return self.freeze <= timezone.now()
 
     def competition_over(self):
         """
